@@ -1,1 +1,1 @@
-# replicaDomainControllers
+# Replica Domain Controllers - Quickstart
