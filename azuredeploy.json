@@ -114,7 +114,7 @@
     "dc1IpAddress": "10.0.1.6",
     "dc2IpAddress": "10.0.1.7",
     "vNetID": "[resourceId(parameters('existing-vNet-rg'), 'Microsoft.Network/virtualNetworks', parameters('existing-vNetName'))]",
-    "subRef": "[concat(variables('vNetID'), '/subnets/', 'sbk-az-hub-sub1')]",
+    "subRef": "[concat(variables('vNetID'), '/subnets/', 'adds-sub')]",
     "dc1NicName": "[concat(parameters('dc1Name'), '-nic')]",
     "dc2NicName": "[concat(parameters('dc2Name'), '-nic')]",
     "promote-addsArchiveFolder": "DSC",
