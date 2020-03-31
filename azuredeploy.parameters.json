@@ -3,10 +3,10 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "dc1Name": {
-      "value": "sbk-az-dc07"
+      "value": "dc1"
     },
     "locAdminUserName": {
-      "value": "sbkadmin"
+      "value": "localadmin"
     },
     "locAdminPswrd": {
       "reference": {
@@ -23,22 +23,22 @@
       "value": "Premium_LRS"
     },
     "existing-vNetName": {
-      "value": "sbk-az-hub"
+      "value": "hub-vnet"
     },
     "existing-vNet-rg": {
-      "value": "sbk-hub"
+      "value": "hub"
     },
     "dc2Name": {
-      "value": "sbk-az-dc08"
+      "value": "dc2"
     },
     "availSetName": {
-      "value": "sbk-az-ad-avail-set-2"
+      "value": "dc-avail-set"
     },
     "location": {
       "value": "westus2"
     },
     "domainToJoin": {
-      "value": "shakeen.net"
+      "value": "domain.com"
     },
     "domainAdminPassword": {
       "reference": {
@@ -49,7 +49,7 @@
       }
     },
     "domainAdminUsername": {
-      "value": "inception"
+      "value": "domainadmin"
     }
   }
 } 
