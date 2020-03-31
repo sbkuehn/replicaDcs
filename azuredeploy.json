@@ -91,3 +91,304 @@
         "description": "Location of deployed resources"
       }
     },
+    "_artifactsLocation": {
+      "type": "string",
+      "metadata": {
+        "description": "Auto-generated container in staging storage account to receive post-build staging folder upload"
+      }
+    },
+    "_artifactsLocationSasToken": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Auto-generated token to access _artifactsLocation"
+      }
+    }
+  },
+  "variables": {
+    "imagePublisher": "MicrosoftWindowsServer",
+    "imageOffer": "WindowsServer",
+    "osDiskName": "osDisk",
+    "dataDiskName": "dataDisk",
+    "dataDiskSize": "100",
+    "vmSize": "Standard_DS2_v2",
+    "dc1IpAddress": "10.0.1.6",
+    "dc2IpAddress": "10.0.1.7",
+    "vNetID": "[resourceId(parameters('existing-vNet-rg'), 'Microsoft.Network/virtualNetworks', parameters('existing-vNetName'))]",
+    "subRef": "[concat(variables('vNetID'), '/subnets/', 'sbk-az-hub-sub1')]",
+    "dc1NicName": "[concat(parameters('dc1Name'), '-nic')]",
+    "dc2NicName": "[concat(parameters('dc2Name'), '-nic')]",
+    "promote-addsArchiveFolder": "DSC",
+    "promote-addsArchiveFileName": "promote-adds.zip"
+  },
+  "resources": [
+    {
+      "name": "[variables('dc1NicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[parameters('location')]",
+      "apiVersion": "2016-10-01",
+      "dependsOn": [],
+      "tags": {
+        "displayName": "vm1Nic"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Static",
+              "privateIPAddress": "[variables('dc1IpAddress')]",
+              "subnet": {
+                "id": "[variables('subRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[variables('dc2NicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[parameters('location')]",
+      "apiVersion": "2016-10-01",
+      "dependsOn": [],
+      "tags": {
+        "displayName": "vm2Nic"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Static",
+              "privateIPAddress": "[variables('dc2IpAddress')]",
+              "subnet": {
+                "id": "[variables('subRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+
+    {
+      "apiVersion": "2017-03-30",
+      "type": "Microsoft.Compute/availabilitySets",
+      "location": "[parameters('location')]",
+      "name": "[parameters('availSetName')]",
+      "properties": {
+        "PlatformUpdateDomainCount": 20,
+        "PlatformFaultDomainCount": 2
+      },
+      "sku": {
+        "name": "Aligned"
+      }
+    },
+    {
+      "name": "[parameters('dc1Name')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[parameters('location')]",
+      "apiVersion": "2017-03-30",
+      "dependsOn": [
+        "[variables('dc1NicName')]"
+      ],
+      "tags": {
+        "displayName": "dc1"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('availSetName'))]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('dc1Name')]",
+          "adminUsername": "[parameters('locAdminUsername')]",
+          "adminPassword": "[parameters('locAdminPswrd')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[parameters('winOSVer')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "[concat(parameters('dc1Name'), '-', variables('osDiskName'))]",
+            "caching": "ReadWrite",
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "[parameters('storAcctType')]"
+            }
+          },
+          "dataDisks": [
+            {
+              "name": "[concat(parameters('dc1Name'),'-', variables('dataDiskName'))]",
+              "caching": "None",
+              "diskSizeGB": "[variables('dataDiskSize')]",
+              "lun": 0,
+              "createOption": "Empty",
+              "managedDisk": {
+                "storageAccountType": "[parameters('storAcctType')]"
+              }
+            }
+          ]
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('dc1NicName'))]"
+            }
+          ]
+        }
+      },
+      "resources": [
+        {
+          "name": "Microsoft.Powershell.DSC",
+          "type": "extensions",
+          "location": "[parameters('location')]",
+          "apiVersion": "2019-03-01",
+          "dependsOn": [
+            "[resourceId('Microsoft.Compute/virtualMachines', parameters('dc1Name'))]"
+          ],
+          "tags": {
+            "displayName": "promote-adds"
+          },
+          "properties": {
+            "publisher": "Microsoft.Powershell",
+            "type": "DSC",
+            "typeHandlerVersion": "2.19",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "configuration": {
+                "WMFVersion": "latest",
+                "url": "[concat(parameters('_artifactsLocation'), '/', variables('promote-addsArchiveFolder'), '/', variables('promote-addsArchiveFileName'))]",
+                "script": "promote-adds.ps1",
+                "function": "CreateADReplicaDC"
+              },
+              "configurationArguments": {
+                "DomainName": "[parameters('domainToJoin')]"
+              }
+            },
+            "protectedSettings": {
+              "configurationArguments": {
+                "safemodeAdminCreds": {
+                  "UserName": "[parameters('domainAdminUserName')]",
+                  "Password": "[parameters('domainAdminPassword')]"
+                },
+                "adminCreds": {
+                  "UserName": "[parameters('domainAdminUsername')]",
+                  "Password": "[parameters('domainAdminPassword')]"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "[parameters('dc2Name')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[parameters('location')]",
+      "apiVersion": "2017-03-30",
+      "dependsOn": [
+        "[variables('dc2NicName')]"
+      ],
+      "tags": {
+        "displayName": "dc2"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('availSetName'))]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('dc2Name')]",
+          "adminUsername": "[parameters('locAdminUsername')]",
+          "adminPassword": "[parameters('locAdminPswrd')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[parameters('winOSVer')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "[concat(parameters('dc2Name'), '-', variables('osDiskName'))]",
+            "caching": "ReadWrite",
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "[parameters('storAcctType')]"
+            }
+          },
+          "dataDisks": [
+            {
+              "name": "[concat(parameters('dc2Name'),'-', variables('dataDiskName'))]",
+              "caching": "None",
+              "diskSizeGB": "[variables('dataDiskSize')]",
+              "lun": 0,
+              "createOption": "Empty",
+              "managedDisk": {
+                "storageAccountType": "[parameters('storAcctType')]"
+              }
+            }
+          ]
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('dc2NicName'))]"
+            }
+          ]
+        }
+      },
+      "resources": [
+        {
+          "name": "Microsoft.Powershell.DSC",
+          "type": "extensions",
+          "location": "[parameters('location')]",
+          "apiVersion": "2019-03-01",
+          "dependsOn": [
+            "[resourceId('Microsoft.Compute/virtualMachines', parameters('dc2Name'))]"
+          ],
+          "tags": {
+            "displayName": "promote-adds"
+          },
+          "properties": {
+            "publisher": "Microsoft.Powershell",
+            "type": "DSC",
+            "typeHandlerVersion": "2.19",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "configuration": {
+                "WMFVersion": "latest",
+                "url": "[concat(parameters('_artifactsLocation'), '/', variables('promote-addsArchiveFolder'), '/', variables('promote-addsArchiveFileName'))]",
+                "script": "promote-adds.ps1",
+                "function": "CreateADReplicaDC"
+              },
+              "configurationArguments": {
+                "DomainName": "[parameters('domainToJoin')]"
+              }
+            },
+            "protectedSettings": {
+              "configurationArguments": {
+                "safemodeAdminCreds": {
+                  "UserName": "[parameters('domainAdminUserName')]",
+                  "Password": "[parameters('domainAdminPassword')]"
+                },
+                "adminCreds": {
+                  "UserName": "[parameters('domainAdminUsername')]",
+                  "Password": "[parameters('domainAdminPassword')]"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "outputs": {}
+}
