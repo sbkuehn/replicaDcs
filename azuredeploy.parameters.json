@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "dc1Name": {
+      "value": "sbk-az-dc07"
+    },
+    "locAdminUserName": {
+      "value": "sbkadmin"
+    },
+    "locAdminPswrd": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/9c29eddd-8897-46b5-b8ca-503e7ba5b463/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-6e6dnpt2p5fxi"
+        },
+        "secretName": "admin-pw"
+      }
+    },
+    "winOSVer": {
+      "value": "2019-Datacenter"
+    },
+    "storAcctType": {
+      "value": "Premium_LRS"
+    },
+    "existing-vNetName": {
+      "value": "sbk-az-hub"
+    },
+    "existing-vNet-rg": {
+      "value": "sbk-hub"
+    },
+    "dc2Name": {
+      "value": "sbk-az-dc08"
+    },
+    "availSetName": {
+      "value": "sbk-az-ad-avail-set-2"
+    },
+    "location": {
+      "value": "westus2"
+    },
+    "domainToJoin": {
+      "value": "shakeen.net"
+    },
+    "domainAdminPassword": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/9c29eddd-8897-46b5-b8ca-503e7ba5b463/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-6e6dnpt2p5fxi"
+        },
+        "secretName": "admin-pw"
+      }
+    },
+    "domainAdminUsername": {
+      "value": "inception"
+    }
+  }
+} 
