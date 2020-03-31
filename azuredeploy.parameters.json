@@ -13,7 +13,7 @@
         "keyVault": {
           "id": "/subscriptions/9c29eddd-8897-46b5-b8ca-503e7ba5b463/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-6e6dnpt2p5fxi"
         },
-        "secretName": "admin-pw"
+        "secretName": "local-admin-pw"
       }
     },
     "winOSVer": {
@@ -45,7 +45,7 @@
         "keyVault": {
           "id": "/subscriptions/9c29eddd-8897-46b5-b8ca-503e7ba5b463/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-6e6dnpt2p5fxi"
         },
-        "secretName": "admin-pw"
+        "secretName": "domain-admin-pw"
       }
     },
     "domainAdminUsername": {
