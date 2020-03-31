@@ -93,6 +93,7 @@
     },
     "_artifactsLocation": {
       "type": "string",
+      "defaultValue": "https://github.com/sbkuehn/replicaDcs/tree/master/"
       "metadata": {
         "description": "Auto-generated container in staging storage account to receive post-build staging folder upload"
       }
