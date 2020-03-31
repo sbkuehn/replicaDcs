@@ -6,7 +6,7 @@
 ## Background
 Most enterprises choose to extend their Active Directory Domain Services (ADDS) environment into Azure as part of their digital transformation. Many applications and server environments still rely upon legacy authentication methods like Kerberos for access. Rather than build out replica domain controllers in Azure manually, this template automates both the build and configuration process to help speed up the process. 
 
-## Pre-requisities & Notes
+## Pre-requisities
 1) An existing VNet needs to be set-up with a [S2S VPN](https://github.com/Azure/azure-quickstart-templates/tree/master/101-site-to-site-vpn-create) or ExpressRoute with private peering. [DNS servers](https://docs.microsoft.com/en-us/azure/virtual-network/manage-virtual-network#change-dns-servers) in Azure VNet need to point to on-premises domain controllers.
 2) Regardless of the forest and domain configuration that exists on-premises, the domain that hosts users should be able to be seen from Azure for traditional ADDS replication.
 3) A [Key Vault](https://docs.microsoft.com/en-us/azure/key-vault/quick-create-portal) must be set up in the subscription. The parameters json showcases how to reference a secret, but values need to be changed per the environment you are deploying this Quickstart to in Azure.
