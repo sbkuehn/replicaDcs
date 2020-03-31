@@ -38,7 +38,7 @@
       "value": "westus2"
     },
     "domainToJoin": {
-      "value": "domain.com"
+      "value": "contoso.com"
     },
     "domainAdminPassword": {
       "reference": {
