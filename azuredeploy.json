@@ -1,0 +1,93 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "dc1Name": {
+      "type": "string",
+      "metadata": {
+        "description": "First domain controller VM name"
+      }
+    },
+    "dc2Name": {
+      "type": "string",
+      "metadata": {
+        "description": "First domain controller VM name"
+      }
+    },
+    "availSetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Availability Set name"
+      }
+    },
+    "domainToJoin": {
+      "type": "string",
+      "metadata": {
+        "description": "Domain that the VM is joining"
+      }
+    },
+    "domainAdminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Domain Administrator username"
+      }
+    },
+    "domainAdminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Domain Administrator password"
+      }
+    },
+    "locAdminUserName": {
+      "type": "string",
+      "metadata": {
+        "description": "First domain controller local admin name"
+      }
+    },
+    "locAdminPswrd": {
+      "type": "securestring",
+      "metadata": {
+        "description": "First domain controller local admin password"
+      }
+    },
+    "winOSVer": {
+      "type": "string",
+      "metadata": {
+        "description": "OS versions for VMs deployed"
+      },
+      "allowedValues": [
+        "2008-R2-SP1",
+        "2012-Datacenter",
+        "2012-R2-Datacenter",
+        "2016-Datacenter",
+        "2019-Datacenter"
+      ]
+    },
+    "storAcctType": {
+      "type": "string",
+      "allowedValues": [
+        "Premium_LRS",
+        "Standard_LRS"
+      ],
+      "metadata": {
+        "description": "Type of storage deployed with the VMs"
+      }
+    },
+    "existing-vNetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing vNet name"
+      }
+    },
+    "existing-vNet-rg": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing vNet Resource Group"
+      }
+    },
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "Location of deployed resources"
+      }
+    },
