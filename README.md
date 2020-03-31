@@ -1,5 +1,8 @@
 # Replica Domain Controllers - Quickstart
 
+## Architecture
+!(https://contentsharing1.blob.core.windows.net/content/replicaDcs-quickstart.jpg)
+
 ## Background
 Most enterprises choose to extend their Active Directory Domain Services (ADDS) environment into Azure as part of their digital transformation. Many applications and server environments still rely upon legacy authentication methods like Kerberos for access. Rather than build out replica domain controllers in Azure manually, this template automates both the build and configuration process to help speed up the process. 
 
