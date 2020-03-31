@@ -8,12 +8,12 @@ Pre-requisities
 
 Benefits
 
-Provides access to the same identity information that is available on-premises.
-You can authenticate user, service, and/or computer accounts on-premises and in Azure.
-You do not need to manage a separate AD forest. The domain in Azure can belong to the on-premises forest.
-You can apply group policy defined by on-premises Group Policy Objects to the domain in Azure.
+1) Provides access to the same identity information that is available on-premises.
+2) Companies can authenticate user, service, and/or computer accounts on-premises and in Azure.
+3) Companies do not need to manage a separate AD forest, as the domain in Azure can belong to the on-premises forest.
+4) Companies can apply group policy defined by on-premises Group Policy Objects to the domain in Azure.
 
 Possible Challenges
 
-You must deploy and manage your own AD DS servers and domain in the cloud.
-There may be some synchronization latency between the domain servers in the cloud and the servers running on-premises.
+1) Companies must deploy and manage their own AD DS servers and domain in the cloud.
+2) There may be some synchronization latency between the domain servers in the cloud and the servers running on-premises.
