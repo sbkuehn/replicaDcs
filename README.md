@@ -8,8 +8,8 @@ Most enterprises choose to extend their Active Directory Domain Services (ADDS) 
 
 ## Pre-requisities & Notes
 1) An existing VNet needs to be set-up with a [S2S VPN](https://github.com/Azure/azure-quickstart-templates/tree/master/101-site-to-site-vpn-create) or ExpressRoute with private peering. [DNS servers](https://docs.microsoft.com/en-us/azure/virtual-network/manage-virtual-network#change-dns-servers) in Azure VNet need to point to on-premises domain controllers.
-2) Line of sight to on-premises domain controllers. Regardless of the forest and domain configuration on-premises, the domain that hosts users should be able to be seen from Azure for Active Directory replication.
-3) A Key Vault must be set up in the subscription. The parameters json showcases how to reference a secret, but values need to be changed per the environment you are deploying this Quickstart to.
+2) Regardless of the forest and domain configuration exists on-premises, the domain that hosts users should be able to be seen from Azure for traditional ADDS replication.
+3) A [Key Vault](https://docs.microsoft.com/en-us/azure/key-vault/quick-create-portal) must be set up in the subscription. The parameters json showcases how to reference a secret, but values need to be changed per the environment you are deploying this Quickstart to.
 
 ## Benefits
 1) Provides access to the same identity information that is available on-premises.
