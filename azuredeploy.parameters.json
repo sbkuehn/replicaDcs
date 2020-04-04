@@ -2,11 +2,16 @@
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "dc1Name": {
-      "value": "dc1"
+    "dcPrefix": {
+      "value": "azdc"
     },
     "locAdminUserName": {
-      "value": "localadmin"
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/9c29eddd-8897-46b5-b8ca-503e7ba5b463/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-6e6dnpt2p5fxi"
+        },
+        "secretName": "local-admin"
+      }
     },
     "locAdminPswrd": {
       "reference": {
@@ -16,6 +21,12 @@
         "secretName": "local-admin-pw"
       }
     },
+    "ipAddresses": {
+      "value": [
+        "10.1.1.29",
+        "10.1.1.30"
+      ]
+    },
     "winOSVer": {
       "value": "2019-Datacenter"
     },
@@ -23,19 +34,16 @@
       "value": "Premium_LRS"
     },
     "existing-vNetName": {
-      "value": "hub-vnet"
+      "value": "az-hub-vnet"
     },
     "existing-vNet-rg": {
-      "value": "hub"
-    },
-    "dc2Name": {
-      "value": "dc2"
+      "value": "az-hub"
     },
     "availSetName": {
-      "value": "dc-avail-set"
+      "value": "az-ad-avail-set"
     },
     "location": {
-      "value": "westus2"
+      "value": "eastus"
     },
     "domainToJoin": {
       "value": "contoso.com"
@@ -49,7 +57,18 @@
       }
     },
     "domainAdminUsername": {
-      "value": "domainadmin"
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/9c29eddd-8897-46b5-b8ca-503e7ba5b463/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-6e6dnpt2p5fxi"
+        },
+        "secretName": "domain-admin"
+      }
+    },
+    "_artifactsLocation": {
+      "value": "https://github.com/sbkuehn/replicaDcs/blob/master/DSC/promote-adds.zip?raw=true"
+    },
+    "existing-vNet-subnet": {
+      "value": "az-hub-sub1"
     }
   }
-} 
+}
