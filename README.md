@@ -3,6 +3,14 @@
 ## Architecture
 ![Quickstart Architecture](https://contentsharing1.blob.core.windows.net/content/replicaDcs.png)
 
+## Blog Posts
+1) https://skuehn.io/repldc1 - Introduction to Building a Replica Domain Controller ARM Template
+2) https://skuehn.io/repldc2 - Pre-Requisites to Building a Replica Domain Controller ARM Template
+3) https://skuehn.io/repldc3 - Design Considerations of Building a Replica Domain Controller ARM Template
+4) https://skuehn.io/repldc4 - Digging into the Replica Domain Controller ARM Template Code
+5) https://skuehn.io/repldc5 - Desired State Configuration Extension and the Replica Domain Controller ARM Template
+6) https://skuehn.io/repldc6 - Desired State Configuration code: How to troubleshoot the extension
+
 ## Background
 Most enterprises choose to extend their Active Directory Domain Services (ADDS) environment into Azure as part of their digital transformation. Many applications and server environments still rely upon legacy authentication methods like Kerberos for access. Rather than build out replica domain controllers in Azure manually, this template automates both the build and configuration process to help speed up the process. 
 
