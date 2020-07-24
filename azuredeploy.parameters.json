@@ -65,7 +65,7 @@
       }
     },
     "_artifactsLocation": {
-      "value": "https://github.com/sbkuehn/replicaDcs/blob/master/promote-adds.zip?raw=true"
+      "value": "https://github.com/sbkuehn/replicaDcs/blob/master/DSC/promote-adds.zip?raw=true"
     },
     "existing-vNet-subnet": {
       "value": "az-hub-sub1"
