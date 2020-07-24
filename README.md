@@ -3,7 +3,7 @@
 ## Architecture
 ![Quickstart Architecture](https://contentsharing1.blob.core.windows.net/content/replicaDcs.png)
 
-## Blog Posts
+## Blog Posts - IT Ops Talk (Microsoft Tech Community)
 1) https://skuehn.io/repldc1 - Introduction to Building a Replica Domain Controller ARM Template
 2) https://skuehn.io/repldc2 - Pre-Requisites to Building a Replica Domain Controller ARM Template
 3) https://skuehn.io/repldc3 - Design Considerations of Building a Replica Domain Controller ARM Template
