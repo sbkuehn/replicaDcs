@@ -8,7 +8,7 @@
     "locAdminUserName": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/9f27316b-43a0-4f1b-9449-3d798ebdd43f/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-6e6dnpt2p5fxi"
+          "id": "/subscriptions/9f27316b-43a0-4f1b-9449-3d798ebdd43f/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-7bmloty4fxi"
         },
         "secretName": "local-admin"
       }
@@ -16,7 +16,7 @@
     "locAdminPswrd": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/9f27316b-43a0-4f1b-9449-3d798ebdd43f/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-6e6dnpt2p5fxi"
+          "id": "/subscriptions/9f27316b-43a0-4f1b-9449-3d798ebdd43f/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-7bmloty4fxi"
         },
         "secretName": "local-admin-pw"
       }
@@ -51,7 +51,7 @@
     "domainAdminPassword": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/9f27316b-43a0-4f1b-9449-3d798ebdd43f/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-6e6dnpt2p5fxi"
+          "id": "/subscriptions/9f27316b-43a0-4f1b-9449-3d798ebdd43f/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-7bmloty4fxi"
         },
         "secretName": "domain-admin-pw"
       }
@@ -59,7 +59,7 @@
     "domainAdminUsername": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/9f27316b-43a0-4f1b-9449-3d798ebdd43f/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-6e6dnpt2p5fxi"
+          "id": "/subscriptions/9f27316b-43a0-4f1b-9449-3d798ebdd43f/resourceGroups/keyVault/providers/Microsoft.KeyVault/vaults/kv-7bmloty4fxi"
         },
         "secretName": "domain-admin"
       }
