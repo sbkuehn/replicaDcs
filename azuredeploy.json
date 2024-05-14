@@ -53,11 +53,9 @@
         "description": "OS versions for VMs deployed"
       },
       "allowedValues": [
-        "2008-R2-SP1",
-        "2012-Datacenter",
-        "2012-R2-Datacenter",
-        "2016-Datacenter",
-        "2019-Datacenter"
+        "2016-datacenter-gensecond",
+        "2019-datacenter-gensecond",
+        "2022-datacenter-azure-edition"
       ]
     },
       "resourceCount": {
