@@ -28,7 +28,7 @@
       ]
     },
     "winOSVer": {
-      "value": "2019-Datacenter"
+      "value": "2022-datacenter-azure-edition"
     },
     "storAcctType": {
       "value": "Premium_LRS"
