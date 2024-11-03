@@ -21,23 +21,17 @@ Configuration CreateADReplicaDC
           RebootNodeIfNeeded = $true            
        }
 
-       WindowsFeature RSAT 
-       {
-          Ensure = "Present"
-          Name = "RSAT"
-       }
-
-        xWaitforDisk Disk2
+        xWaitforDisk Disk1
         {
-            DiskId = 2
+            DiskId = 1
             RetryIntervalSec =$RetryIntervalSec
             RetryCount = $RetryCount
         }
 
         xDisk ADDataDisk {
-            DiskId = 2
+            DiskId = 1
             DriveLetter = "F"
-            DependsOn = "[xWaitForDisk]Disk2"
+            DependsOn = "[xWaitForDisk]Disk1"
         }
 
         xDSCDomainjoin JoinDomain
