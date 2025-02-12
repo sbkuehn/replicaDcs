@@ -184,7 +184,7 @@
         "name": "vmloop"
       },
       "dependsOn": [
-        "nicloop"
+        "[parameters('availSetName')]"
       ],
       "tags": {
         "displayName": "dc"
