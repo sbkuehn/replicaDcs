@@ -1,5 +1,5 @@
 {
-  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
     "dcPrefix": {
@@ -33,12 +33,6 @@
     "storAcctType": {
       "value": "Premium_LRS"
     },
-    "existing-vNetName": {
-      "value": "az-hub-vnet"
-    },
-    "existing-vNet-rg": {
-      "value": "az-hub"
-    },
     "availSetName": {
       "value": "az-ad-avail-set"
     },
@@ -65,9 +59,15 @@
       }
     },
     "_artifactsLocation": {
-      "value": "https://github.com/sbkuehn/replicaDcs/blob/master/DSC/promote-adds.zip?raw=true"
+      "value": "https://raw.githubusercontent.com/sbkuehn/replicaDcs/master/"
     },
-    "existing-vNet-subnet": {
+    "existingVnetName": {
+      "value": "az-hub-vnet"
+    },
+    "existingVnetResourceGroup": {
+      "value": "az-hub"
+    },
+    "existingSubnetName": {
       "value": "az-hub-sub1"
     }
   }
