@@ -1,21 +1,26 @@
-#Requires -Version 3.0
+#Requires -Version 7.0
+#Requires -Modules Az.Accounts, Az.Resources, Az.Storage
 
+<#
+.SYNOPSIS
+    Deploys the replica domain controller template to a resource group.
+
+.DESCRIPTION
+    By default the template pulls the DSC archive from _artifactsLocation in the parameters
+    file (the GitHub repo). Use -UploadArtifacts to rebuild DSC\promote-adds.zip from the
+    local promote-adds.ps1 and stage it in a private storage container instead, which lets
+    you test DSC changes before pushing them.
+#>
 Param(
     [string] [Parameter(Mandatory=$true)] $ResourceGroupLocation,
-    [string] $ResourceGroupName,
+    [string] [Parameter(Mandatory=$true)] $ResourceGroupName,
     [switch] $UploadArtifacts,
     [string] $StorageAccountName,
     [string] $StorageContainerName = $ResourceGroupName.ToLowerInvariant() + '-stageartifacts',
     [string] $TemplateFile = 'azuredeploy.json',
     [string] $TemplateParametersFile = 'azuredeploy.parameters.json',
-    [string] $ArtifactStagingDirectory = '.',
-    [string] $DSCSourceFolder = 'DSC',
     [switch] $ValidateOnly
 )
-
-try {
-    [Microsoft.Azure.Common.Authentication.AzureSession]::ClientFactory.AddUserAgent("VSAzureTools-$UI$($host.name)".replace(' ','_'), '3.0.0')
-} catch { }
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 3
@@ -31,74 +36,48 @@ $TemplateFile = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PSScrip
 $TemplateParametersFile = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PSScriptRoot, $TemplateParametersFile))
 
 if ($UploadArtifacts) {
-    # Convert relative paths to absolute paths if needed
-    $ArtifactStagingDirectory = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PSScriptRoot, $ArtifactStagingDirectory))
-    $DSCSourceFolder = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PSScriptRoot, $DSCSourceFolder))
-
-    # Parse the parameter file and update the values of artifacts location and artifacts location SAS token if they are present
-    $JsonParameters = Get-Content $TemplateParametersFile -Raw | ConvertFrom-Json
-    if (($JsonParameters | Get-Member -Type NoteProperty 'parameters') -ne $null) {
-        $JsonParameters = $JsonParameters.parameters
-    }
-    $ArtifactsLocationName = '_artifactsLocation'
-    $ArtifactsLocationSasTokenName = '_artifactsLocationSasToken'
-    $OptionalParameters[$ArtifactsLocationName] = $JsonParameters | Select -Expand $ArtifactsLocationName -ErrorAction Ignore | Select -Expand 'value' -ErrorAction Ignore
-    $OptionalParameters[$ArtifactsLocationSasTokenName] = $JsonParameters | Select -Expand $ArtifactsLocationSasTokenName -ErrorAction Ignore | Select -Expand 'value' -ErrorAction Ignore
-
-    # Create DSC configuration archive
-    if (Test-Path $DSCSourceFolder) {
-        $DSCSourceFilePaths = @(Get-ChildItem $DSCSourceFolder -File -Filter '*.ps1' | ForEach-Object -Process {$_.FullName})
-        foreach ($DSCSourceFilePath in $DSCSourceFilePaths) {
-            $DSCArchiveFilePath = $DSCSourceFilePath.Substring(0, $DSCSourceFilePath.Length - 4) + '.zip'
-            Publish-AzVMDscConfiguration $DSCSourceFilePath -OutputArchivePath $DSCArchiveFilePath -Force -Verbose
-        }
-    }
+    # Rebuild the DSC archive (script plus the DSC modules it imports)
+    $DSCArchiveFilePath = Join-Path $PSScriptRoot 'DSC/promote-adds.zip'
+    & (Join-Path $PSScriptRoot 'DSC/Build-DscArchive.ps1') -OutputPath $DSCArchiveFilePath
 
     # Create a storage account name if none was provided
-    if ($StorageAccountName -eq '') {
-        $StorageAccountName = 'stage' + ((Get-AzContext).Subscription.SubscriptionId).Replace('-', '').substring(0, 19)
+    if (-not $StorageAccountName) {
+        $StorageAccountName = 'stage' + ((Get-AzContext).Subscription.SubscriptionId).Replace('-', '').Substring(0, 19)
     }
 
-    $StorageAccount = (Get-AzStorageAccount | Where-Object{$_.StorageAccountName -eq $StorageAccountName})
+    $StorageAccount = Get-AzStorageAccount | Where-Object { $_.StorageAccountName -eq $StorageAccountName }
 
     # Create the storage account if it doesn't already exist
-    if ($StorageAccount -eq $null) {
+    if ($null -eq $StorageAccount) {
         $StorageResourceGroupName = 'ARM_Deploy_Staging'
-        New-AzResourceGroup -Location "$ResourceGroupLocation" -Name $StorageResourceGroupName -Force
-        $StorageAccount = New-AzStorageAccount -StorageAccountName $StorageAccountName -Type 'Standard_LRS' -ResourceGroupName $StorageResourceGroupName -Location "$ResourceGroupLocation"
+        New-AzResourceGroup -Location $ResourceGroupLocation -Name $StorageResourceGroupName -Force | Out-Null
+        $StorageAccount = New-AzStorageAccount -StorageAccountName $StorageAccountName -SkuName 'Standard_LRS' `
+            -Kind 'StorageV2' -ResourceGroupName $StorageResourceGroupName -Location $ResourceGroupLocation `
+            -MinimumTlsVersion 'TLS1_2' -AllowBlobPublicAccess $false
     }
 
-    # Generate the value for artifacts location if it is not provided in the parameter file
-    if ($OptionalParameters[$ArtifactsLocationName] -eq $null) {
-        $OptionalParameters[$ArtifactsLocationName] = $StorageAccount.Context.BlobEndPoint + $StorageContainerName + '/'
-    }
+    # Upload only the DSC archive; the container stays private and is read through a SAS token
+    New-AzStorageContainer -Name $StorageContainerName -Context $StorageAccount.Context -ErrorAction SilentlyContinue *>&1 | Out-Null
+    Set-AzStorageBlobContent -File $DSCArchiveFilePath -Blob 'DSC/promote-adds.zip' `
+        -Container $StorageContainerName -Context $StorageAccount.Context -Force | Out-Null
 
-    # Copy files from the local storage staging location to the storage account container
-    New-AzStorageContainer -Name $StorageContainerName -Context $StorageAccount.Context -ErrorAction SilentlyContinue *>&1
-
-    $ArtifactFilePaths = Get-ChildItem $ArtifactStagingDirectory -Recurse -File | ForEach-Object -Process {$_.FullName}
-    foreach ($SourcePath in $ArtifactFilePaths) {
-        Set-AzStorageBlobContent -File $SourcePath -Blob $SourcePath.Substring($ArtifactStagingDirectory.length + 1) `
-            -Container $StorageContainerName -Context $StorageAccount.Context -Force
-    }
-
-    # Generate a 4 hour SAS token for the artifacts location if one was not provided in the parameters file
-    if ($OptionalParameters[$ArtifactsLocationSasTokenName] -eq $null) {
-        $OptionalParameters[$ArtifactsLocationSasTokenName] = ConvertTo-SecureString -AsPlainText -Force `
-            (New-AzStorageContainerSASToken -Container $StorageContainerName -Context $StorageAccount.Context -Permission r -ExpiryTime (Get-Date).AddHours(4))
-    }
+    # Point the template at the staged copy, overriding _artifactsLocation from the parameters file
+    $OptionalParameters['_artifactsLocation'] = $StorageAccount.Context.BlobEndPoint + $StorageContainerName + '/'
+    $OptionalParameters['_artifactsLocationSasToken'] = ConvertTo-SecureString -AsPlainText -Force `
+        ('?' + (New-AzStorageContainerSASToken -Container $StorageContainerName -Context $StorageAccount.Context `
+            -Permission r -ExpiryTime (Get-Date).AddHours(4)).TrimStart('?'))
 }
 
 # Create the resource group only when it doesn't already exist
-if ((Get-AzResourceGroup -Name $ResourceGroupName -Location $ResourceGroupLocation -Verbose -ErrorAction SilentlyContinue) -eq $null) {
-    New-AzResourceGroup -Name $ResourceGroupName -Location $ResourceGroupLocation -Verbose -Force -ErrorAction Stop
+if ($null -eq (Get-AzResourceGroup -Name $ResourceGroupName -Location $ResourceGroupLocation -ErrorAction SilentlyContinue)) {
+    New-AzResourceGroup -Name $ResourceGroupName -Location $ResourceGroupLocation -Verbose -Force | Out-Null
 }
 
 if ($ValidateOnly) {
     $ErrorMessages = Format-ValidationOutput (Test-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName `
-                                                                                  -TemplateFile $TemplateFile `
-                                                                                  -TemplateParameterFile $TemplateParametersFile `
-                                                                                  @OptionalParameters)
+                                                                             -TemplateFile $TemplateFile `
+                                                                             -TemplateParameterFile $TemplateParametersFile `
+                                                                             @OptionalParameters)
     if ($ErrorMessages) {
         Write-Output '', 'Validation returned the following errors:', @($ErrorMessages), '', 'Template is invalid.'
     }
@@ -108,12 +87,12 @@ if ($ValidateOnly) {
 }
 else {
     New-AzResourceGroupDeployment -Name ((Get-ChildItem $TemplateFile).BaseName + '-' + ((Get-Date).ToUniversalTime()).ToString('MMdd-HHmm')) `
-                                       -ResourceGroupName $ResourceGroupName `
-                                       -TemplateFile $TemplateFile `
-                                       -TemplateParameterFile $TemplateParametersFile `
-                                       @OptionalParameters `
-                                       -Force -Verbose `
-                                       -ErrorVariable ErrorMessages
+                                  -ResourceGroupName $ResourceGroupName `
+                                  -TemplateFile $TemplateFile `
+                                  -TemplateParameterFile $TemplateParametersFile `
+                                  @OptionalParameters `
+                                  -Force -Verbose `
+                                  -ErrorVariable ErrorMessages
     if ($ErrorMessages) {
         Write-Output '', 'Template deployment returned the following errors:', @(@($ErrorMessages) | ForEach-Object { $_.Exception.Message.TrimEnd("`r`n") })
     }

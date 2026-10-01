@@ -1,9 +1,6 @@
 @description('Name prefix for domain controllers')
 param dcPrefix string
 
-@description('Availability Set name')
-param availSetName string
-
 @description('Domain that the VM is joining')
 param domainToJoin string
 
@@ -14,110 +11,139 @@ param domainAdminUsername string
 @secure()
 param domainAdminPassword string
 
-@description('First domain controller local admin name')
+@description('Directory Services Restore Mode (DSRM) password. Defaults to the domain administrator password when left empty.')
+@secure()
+param safeModeAdminPassword string = ''
+
+@description('Local administrator username for the domain controller VMs')
 param locAdminUserName string
 
-@description('First domain controller local admin password')
+@description('Local administrator password for the domain controller VMs')
 @secure()
 param locAdminPswrd string
+
+@description('Static private IP address for each domain controller. One domain controller is deployed per address.')
+@minLength(1)
 param ipAddresses array
 
-@description('OS versions for VMs deployed')
-@allowed([
-  '2008-R2-SP1'
-  '2012-Datacenter'
-  '2012-R2-Datacenter'
-  '2016-Datacenter'
-  '2019-Datacenter'
-])
-param winOSVer string
+@description('Active Directory site to place the domain controllers in. Leave empty to let AD choose the site from the subnet.')
+param adSiteName string = ''
 
-@description('Number of resources in template - 2 will be default for this template')
-param resourceCount int = 2
+@description('OS versions for VMs deployed (Generation 2 images, required for Trusted Launch)')
+@allowed([
+  '2019-datacenter-gensecond'
+  '2022-datacenter-g2'
+  '2022-datacenter-azure-edition'
+  '2025-datacenter-g2'
+  '2025-datacenter-azure-edition'
+])
+param winOSVer string = '2022-datacenter-azure-edition'
+
+@description('VM size for the domain controllers. If you choose a size with a local temp disk (e.g. Ddsv5), set dataDiskNumber to 2.')
+param vmSize string = 'Standard_D2s_v5'
+
+@description('Windows disk number of the NTDS/SYSVOL data disk: 1 for VM sizes without a local temp disk, 2 for sizes with one.')
+@allowed([
+  1
+  2
+])
+param dataDiskNumber int = 1
+
+@description('Size in GB of the NTDS/SYSVOL data disk')
+param dataDiskSizeGB int = 64
 
 @description('Type of storage deployed with the VMs')
 @allowed([
   'Premium_LRS'
+  'StandardSSD_LRS'
   'Standard_LRS'
 ])
-param storAcctType string
+param storAcctType string = 'Premium_LRS'
+
+@description('Spread domain controllers across Availability Zones (recommended where the region supports them) or place them in an Availability Set.')
+@allowed([
+  'AvailabilityZones'
+  'AvailabilitySet'
+])
+param availabilityOption string = 'AvailabilitySet'
+
+@description('Availability Set name (used only when availabilityOption is AvailabilitySet)')
+param availSetName string = '${dcPrefix}-avset'
 
 @description('Existing vNet name')
-param existing_vNetName string
+param existingVnetName string
 
 @description('Existing vNet Resource Group')
-param existing_vNet_rg string
+param existingVnetResourceGroup string
 
 @description('Existing subnet for deployment')
-param existing_vNet_subnet string
+param existingSubnetName string
 
 @description('Location of deployed resources')
-param location string
+param location string = resourceGroup().location
 
-@description('Auto-generated container in staging storage account to receive post-build staging folder upload')
-param _artifactsLocation string
+@description('Base URI where the DSC folder is located, including a trailing slash')
+param _artifactsLocation string = deployment().properties.templateLink.uri
 
-@description('Auto-generated token to access _artifactsLocation')
+@description('SAS token to access _artifactsLocation, if required')
 @secure()
-param _artifactsLocationSasToken string
+param _artifactsLocationSasToken string = ''
 
-var imagePublisher = 'MicrosoftWindowsServer'
-var imageOffer = 'WindowsServer'
+var useZones = availabilityOption == 'AvailabilityZones'
 var extensionName = 'promote-adds'
-var osDiskName = 'osDisk'
-var dataDiskName = 'dataDisk'
-var dataDiskSize = '100'
-var vmSize = 'Standard_DS2_v2'
-var promote_addsArchiveFolder = 'DSC'
-var promote_addsArchiveFileName = 'promote-adds.zip'
-var vNetID = resourceId(existing_vNet_rg, 'Microsoft.Network/virtualNetworks', existing_vNetName)
-var subRef = '${vNetID}/subnets/${existing_vNet_subnet}'
-var dcNicName = '${dcPrefix}-nic'
+var dscArchiveUri = uri(_artifactsLocation, 'DSC/promote-adds.zip${_artifactsLocationSasToken}')
 
-resource dcNicName_1_2_0 'Microsoft.Network/networkInterfaces@2016-10-01' = [for i in range(0, resourceCount): {
-  name: concat(dcNicName, padLeft((i + 1), 2, '0'))
+resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' existing = {
+  name: existingVnetName
+  scope: resourceGroup(existingVnetResourceGroup)
+
+  resource subnet 'subnets' existing = {
+    name: existingSubnetName
+  }
+}
+
+resource dcNics 'Microsoft.Network/networkInterfaces@2024-05-01' = [for (ip, i) in ipAddresses: {
+  name: '${dcPrefix}-nic${padLeft(i + 1, 2, '0')}'
   location: location
   tags: {
     displayName: 'dcVmNic'
   }
   properties: {
+    enableAcceleratedNetworking: true
     ipConfigurations: [
       {
         name: 'ipconfig1'
         properties: {
           privateIPAllocationMethod: 'Static'
-          privateIPAddress: ipAddresses[i]
+          privateIPAddress: ip
           subnet: {
-            id: subRef
+            id: vnet::subnet.id
           }
         }
       }
     ]
   }
-  dependsOn: []
 }]
 
-resource availSet 'Microsoft.Compute/availabilitySets@2017-03-30' = {
-  location: location
+resource availSet 'Microsoft.Compute/availabilitySets@2024-07-01' = if (!useZones) {
   name: availSetName
-  properties: {
-    platformUpdateDomainCount: 20
-    platformFaultDomainCount: 2
-  }
+  location: location
   tags: {
     displayName: 'availSet'
   }
   sku: {
     name: 'Aligned'
   }
-  dependsOn: [
-    dcNicName_1_2_0
-  ]
+  properties: {
+    platformUpdateDomainCount: 5
+    platformFaultDomainCount: 2
+  }
 }
 
-resource dcPrefix_1_2_0 'Microsoft.Compute/virtualMachines@2017-03-30' = [for i in range(0, resourceCount): {
-  name: concat(dcPrefix, padLeft((i + 1), 2, '0'))
+resource dcVms 'Microsoft.Compute/virtualMachines@2024-07-01' = [for (ip, i) in ipAddresses: {
+  name: '${dcPrefix}${padLeft(i + 1, 2, '0')}'
   location: location
+  zones: useZones ? [string((i % 3) + 1)] : null
   tags: {
     displayName: 'dc'
   }
@@ -125,23 +151,34 @@ resource dcPrefix_1_2_0 'Microsoft.Compute/virtualMachines@2017-03-30' = [for i 
     hardwareProfile: {
       vmSize: vmSize
     }
-    availabilitySet: {
+    availabilitySet: useZones ? null : {
       id: availSet.id
     }
     osProfile: {
-      computerName: concat(dcPrefix, padLeft((i + 1), 2, '0'))
+      computerName: '${dcPrefix}${padLeft(i + 1, 2, '0')}'
       adminUsername: locAdminUserName
       adminPassword: locAdminPswrd
+      windowsConfiguration: {
+        provisionVMAgent: true
+        enableAutomaticUpdates: true
+      }
+    }
+    securityProfile: {
+      securityType: 'TrustedLaunch'
+      uefiSettings: {
+        secureBootEnabled: true
+        vTpmEnabled: true
+      }
     }
     storageProfile: {
       imageReference: {
-        publisher: imagePublisher
-        offer: imageOffer
+        publisher: 'MicrosoftWindowsServer'
+        offer: 'WindowsServer'
         sku: winOSVer
         version: 'latest'
       }
       osDisk: {
-        name: '${dcPrefix}${padLeft((i + 1), 2, '0')}-${osDiskName}'
+        name: '${dcPrefix}${padLeft(i + 1, 2, '0')}-osDisk'
         caching: 'ReadWrite'
         createOption: 'FromImage'
         managedDisk: {
@@ -150,9 +187,10 @@ resource dcPrefix_1_2_0 'Microsoft.Compute/virtualMachines@2017-03-30' = [for i 
       }
       dataDisks: [
         {
-          name: '${dcPrefix}${padLeft((i + 1), 2, '0')}-${dataDiskName}'
+          // Host caching must be None for the disk holding NTDS/SYSVOL.
+          name: '${dcPrefix}${padLeft(i + 1, 2, '0')}-dataDisk'
           caching: 'None'
-          diskSizeGB: dataDiskSize
+          diskSizeGB: dataDiskSizeGB
           lun: 0
           createOption: 'Empty'
           managedDisk: {
@@ -164,18 +202,21 @@ resource dcPrefix_1_2_0 'Microsoft.Compute/virtualMachines@2017-03-30' = [for i 
     networkProfile: {
       networkInterfaces: [
         {
-          id: resourceId('Microsoft.Network/networkInterfaces', concat(dcNicName, padLeft((i + 1), 2, '0')))
+          id: dcNics[i].id
         }
       ]
     }
+    diagnosticsProfile: {
+      bootDiagnostics: {
+        enabled: true
+      }
+    }
   }
-  dependsOn: [
-    dcNicName_1_2_0
-  ]
 }]
 
-resource dcPrefix_1_2_0_extensionName_1_2_0 'Microsoft.Compute/virtualMachines/extensions@2018-06-01' = [for i in range(0, resourceCount): {
-  name: '${dcPrefix}${padLeft((i + 1), 2, '0')}/${extensionName}${padLeft((i + 1), 2, '0')}'
+resource dcDsc 'Microsoft.Compute/virtualMachines/extensions@2024-07-01' = [for (ip, i) in ipAddresses: {
+  parent: dcVms[i]
+  name: '${extensionName}${padLeft(i + 1, 2, '0')}'
   location: location
   tags: {
     displayName: 'promote-adds'
@@ -183,33 +224,37 @@ resource dcPrefix_1_2_0_extensionName_1_2_0 'Microsoft.Compute/virtualMachines/e
   properties: {
     publisher: 'Microsoft.Powershell'
     type: 'DSC'
-    typeHandlerVersion: '2.19'
+    typeHandlerVersion: '2.83'
     autoUpgradeMinorVersion: true
     settings: {
+      wmfVersion: 'latest'
       configuration: {
-        WMFVersion: 'latest'
-        url: '${_artifactsLocation}/${promote_addsArchiveFolder}/${promote_addsArchiveFileName}'
+        url: dscArchiveUri
         script: 'promote-adds.ps1'
         function: 'CreateADReplicaDC'
       }
       configurationArguments: {
         DomainName: domainToJoin
+        SiteName: adSiteName
+        DataDiskNumber: string(dataDiskNumber)
       }
     }
     protectedSettings: {
       configurationArguments: {
-        safemodeAdminCreds: {
+        SafemodeAdminCreds: {
           UserName: domainAdminUsername
-          Password: domainAdminPassword
+          Password: empty(safeModeAdminPassword) ? domainAdminPassword : safeModeAdminPassword
         }
-        adminCreds: {
+        AdminCreds: {
           UserName: domainAdminUsername
           Password: domainAdminPassword
         }
       }
     }
   }
-  dependsOn: [
-    dcPrefix_1_2_0
-  ]
+}]
+
+output domainControllers array = [for (ip, i) in ipAddresses: {
+  name: dcVms[i].name
+  privateIPAddress: ip
 }]

@@ -1,17 +1,18 @@
 {
-  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "11213455645937195570"
+    }
+  },
   "parameters": {
     "dcPrefix": {
       "type": "string",
       "metadata": {
         "description": "Name prefix for domain controllers"
-      }
-    },
-    "availSetName": {
-      "type": "string",
-      "metadata": {
-        "description": "Availability Set name"
       }
     },
     "domainToJoin": {
@@ -32,62 +33,121 @@
         "description": "Domain Administrator password"
       }
     },
+    "safeModeAdminPassword": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Directory Services Restore Mode (DSRM) password. Defaults to the domain administrator password when left empty."
+      }
+    },
     "locAdminUserName": {
       "type": "string",
       "metadata": {
-        "description": "First domain controller local admin name"
+        "description": "Local administrator username for the domain controller VMs"
       }
     },
     "locAdminPswrd": {
       "type": "securestring",
       "metadata": {
-        "description": "First domain controller local admin password"
+        "description": "Local administrator password for the domain controller VMs"
       }
     },
     "ipAddresses": {
-      "type": "array"
+      "type": "array",
+      "minLength": 1,
+      "metadata": {
+        "description": "Static private IP address for each domain controller. One domain controller is deployed per address."
+      }
+    },
+    "adSiteName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Active Directory site to place the domain controllers in. Leave empty to let AD choose the site from the subnet."
+      }
     },
     "winOSVer": {
       "type": "string",
-      "metadata": {
-        "description": "OS versions for VMs deployed"
-      },
+      "defaultValue": "2022-datacenter-azure-edition",
       "allowedValues": [
-        "2016-datacenter-gensecond",
         "2019-datacenter-gensecond",
-        "2022-datacenter-azure-edition"
-      ]
+        "2022-datacenter-g2",
+        "2022-datacenter-azure-edition",
+        "2025-datacenter-g2",
+        "2025-datacenter-azure-edition"
+      ],
+      "metadata": {
+        "description": "OS versions for VMs deployed (Generation 2 images, required for Trusted Launch)"
+      }
     },
-      "resourceCount": {
-        "type": "int",
-        "defaultValue": 2,
-        "metadata": {
-          "description": "Number of resources in template - 2 will be default for this template"
-        }
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_D2s_v5",
+      "metadata": {
+        "description": "VM size for the domain controllers. If you choose a size with a local temp disk (e.g. Ddsv5), set dataDiskNumber to 2."
+      }
+    },
+    "dataDiskNumber": {
+      "type": "int",
+      "defaultValue": 1,
+      "allowedValues": [
+        1,
+        2
+      ],
+      "metadata": {
+        "description": "Windows disk number of the NTDS/SYSVOL data disk: 1 for VM sizes without a local temp disk, 2 for sizes with one."
+      }
+    },
+    "dataDiskSizeGB": {
+      "type": "int",
+      "defaultValue": 64,
+      "metadata": {
+        "description": "Size in GB of the NTDS/SYSVOL data disk"
+      }
     },
     "storAcctType": {
       "type": "string",
+      "defaultValue": "Premium_LRS",
       "allowedValues": [
         "Premium_LRS",
+        "StandardSSD_LRS",
         "Standard_LRS"
       ],
       "metadata": {
         "description": "Type of storage deployed with the VMs"
       }
     },
-    "existing-vNetName": {
+    "availabilityOption": {
+      "type": "string",
+      "defaultValue": "AvailabilitySet",
+      "allowedValues": [
+        "AvailabilityZones",
+        "AvailabilitySet"
+      ],
+      "metadata": {
+        "description": "Spread domain controllers across Availability Zones (recommended where the region supports them) or place them in an Availability Set."
+      }
+    },
+    "availSetName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-avset', parameters('dcPrefix'))]",
+      "metadata": {
+        "description": "Availability Set name (used only when availabilityOption is AvailabilitySet)"
+      }
+    },
+    "existingVnetName": {
       "type": "string",
       "metadata": {
         "description": "Existing vNet name"
       }
     },
-    "existing-vNet-rg": {
+    "existingVnetResourceGroup": {
       "type": "string",
       "metadata": {
         "description": "Existing vNet Resource Group"
       }
     },
-    "existing-vNet-subnet": {
+    "existingSubnetName": {
       "type": "string",
       "metadata": {
         "description": "Existing subnet for deployment"
@@ -95,52 +155,46 @@
     },
     "location": {
       "type": "string",
+      "defaultValue": "[resourceGroup().location]",
       "metadata": {
         "description": "Location of deployed resources"
       }
     },
     "_artifactsLocation": {
       "type": "string",
+      "defaultValue": "[deployment().properties.templateLink.uri]",
       "metadata": {
-        "description": "Auto-generated container in staging storage account to receive post-build staging folder upload"
+        "description": "Base URI where the DSC folder is located, including a trailing slash"
       }
     },
     "_artifactsLocationSasToken": {
       "type": "securestring",
+      "defaultValue": "",
       "metadata": {
-        "description": "Auto-generated token to access _artifactsLocation"
+        "description": "SAS token to access _artifactsLocation, if required"
       }
     }
   },
   "variables": {
-    "imagePublisher": "MicrosoftWindowsServer",
-    "imageOffer": "WindowsServer",
+    "useZones": "[equals(parameters('availabilityOption'), 'AvailabilityZones')]",
     "extensionName": "promote-adds",
-    "osDiskName": "osDisk",
-    "dataDiskName": "dataDisk",
-    "dataDiskSize": "100",
-    "vmSize": "Standard_DS2_v2",
-    "promote-addsArchiveFolder": "DSC",
-    "promote-addsArchiveFileName": "promote-adds.zip",
-    "vNetID": "[resourceId(parameters('existing-vNet-rg'), 'Microsoft.Network/virtualNetworks', parameters('existing-vNetName'))]",
-    "subRef": "[concat(variables('vNetID'), '/subnets/', parameters('existing-vNet-subnet'))]",
-    "dcNicName": "[concat(parameters('dcPrefix'), '-nic')]"
+    "dscArchiveUri": "[uri(parameters('_artifactsLocation'), format('DSC/promote-adds.zip{0}', parameters('_artifactsLocationSasToken')))]"
   },
   "resources": [
     {
-      "name": "[concat(variables('dcNicName'),padLeft(add(copyIndex(),1),2,'0'))]",
-      "type": "Microsoft.Network/networkInterfaces",
-      "location": "[parameters('location')]",
-      "apiVersion": "2016-10-01",
       "copy": {
-        "count": "[parameters('resourceCount')]",
-        "name": "nicloop"
+        "name": "dcNics",
+        "count": "[length(parameters('ipAddresses'))]"
       },
-      "dependsOn": [],
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2024-05-01",
+      "name": "[format('{0}-nic{1}', parameters('dcPrefix'), padLeft(add(copyIndex(), 1), 2, '0'))]",
+      "location": "[parameters('location')]",
       "tags": {
         "displayName": "dcVmNic"
       },
       "properties": {
+        "enableAcceleratedNetworking": true,
         "ipConfigurations": [
           {
             "name": "ipconfig1",
@@ -148,7 +202,7 @@
               "privateIPAllocationMethod": "Static",
               "privateIPAddress": "[parameters('ipAddresses')[copyIndex()]]",
               "subnet": {
-                "id": "[variables('subRef')]"
+                "id": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('existingVnetResourceGroup')), 'Microsoft.Network/virtualNetworks/subnets', parameters('existingVnetName'), parameters('existingSubnetName'))]"
               }
             }
           }
@@ -156,60 +210,65 @@
       }
     },
     {
-      "apiVersion": "2017-03-30",
+      "condition": "[not(variables('useZones'))]",
       "type": "Microsoft.Compute/availabilitySets",
-      "location": "[parameters('location')]",
+      "apiVersion": "2024-07-01",
       "name": "[parameters('availSetName')]",
-      "dependsOn": [
-        "nicloop"
-      ],
-      "properties": {
-        "PlatformUpdateDomainCount": 20,
-        "PlatformFaultDomainCount": 2
-      },
+      "location": "[parameters('location')]",
       "tags": {
         "displayName": "availSet"
       },
       "sku": {
         "name": "Aligned"
+      },
+      "properties": {
+        "platformUpdateDomainCount": 5,
+        "platformFaultDomainCount": 2
       }
     },
     {
-      "name": "[concat(parameters('dcPrefix'),padLeft(add(copyIndex(),1),2,'0'))]",
-      "type": "Microsoft.Compute/virtualMachines",
-      "location": "[parameters('location')]",
-      "apiVersion": "2017-03-30",
       "copy": {
-        "count": "[parameters('resourceCount')]",
-        "name": "vmloop"
+        "name": "dcVms",
+        "count": "[length(parameters('ipAddresses'))]"
       },
-      "dependsOn": [
-        "[parameters('availSetName')]"
-      ],
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2024-07-01",
+      "name": "[format('{0}{1}', parameters('dcPrefix'), padLeft(add(copyIndex(), 1), 2, '0'))]",
+      "location": "[parameters('location')]",
+      "zones": "[if(variables('useZones'), createArray(string(add(mod(copyIndex(), 3), 1))), null())]",
       "tags": {
         "displayName": "dc"
       },
       "properties": {
         "hardwareProfile": {
-          "vmSize": "[variables('vmSize')]"
+          "vmSize": "[parameters('vmSize')]"
         },
-        "availabilitySet": {
-          "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('availSetName'))]"
-        },
+        "availabilitySet": "[if(variables('useZones'), null(), createObject('id', resourceId('Microsoft.Compute/availabilitySets', parameters('availSetName'))))]",
         "osProfile": {
-          "computerName": "[concat(parameters('dcPrefix'),padLeft(add(copyIndex(),1),2,'0'))]",
-          "adminUsername": "[parameters('locAdminUsername')]",
-          "adminPassword": "[parameters('locAdminPswrd')]"
+          "computerName": "[format('{0}{1}', parameters('dcPrefix'), padLeft(add(copyIndex(), 1), 2, '0'))]",
+          "adminUsername": "[parameters('locAdminUserName')]",
+          "adminPassword": "[parameters('locAdminPswrd')]",
+          "windowsConfiguration": {
+            "provisionVMAgent": true,
+            "enableAutomaticUpdates": true
+          }
+        },
+        "securityProfile": {
+          "securityType": "TrustedLaunch",
+          "uefiSettings": {
+            "secureBootEnabled": true,
+            "vTpmEnabled": true
+          }
         },
         "storageProfile": {
           "imageReference": {
-            "publisher": "[variables('imagePublisher')]",
-            "offer": "[variables('imageOffer')]",
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
             "sku": "[parameters('winOSVer')]",
             "version": "latest"
           },
           "osDisk": {
-            "name": "[concat(parameters('dcPrefix'),padLeft(add(copyIndex(),1),2,'0'),'-',variables('osDiskName'))]",
+            "name": "[format('{0}{1}-osDisk', parameters('dcPrefix'), padLeft(add(copyIndex(), 1), 2, '0'))]",
             "caching": "ReadWrite",
             "createOption": "FromImage",
             "managedDisk": {
@@ -218,9 +277,9 @@
           },
           "dataDisks": [
             {
-              "name": "[concat(parameters('dcPrefix'),padLeft(add(copyIndex(),1),2,'0'),'-',variables('dataDiskName'))]",
+              "name": "[format('{0}{1}-dataDisk', parameters('dcPrefix'), padLeft(add(copyIndex(), 1), 2, '0'))]",
               "caching": "None",
-              "diskSizeGB": "[variables('dataDiskSize')]",
+              "diskSizeGB": "[parameters('dataDiskSizeGB')]",
               "lun": 0,
               "createOption": "Empty",
               "managedDisk": {
@@ -232,57 +291,79 @@
         "networkProfile": {
           "networkInterfaces": [
             {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces',concat(variables('dcNicName'),padLeft(add(copyIndex(),1),2,'0')))]"
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', format('{0}-nic{1}', parameters('dcPrefix'), padLeft(add(copyIndex(), 1), 2, '0')))]"
             }
           ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true
+          }
         }
-      }
-    },
-    {
-      "name": "[concat(parameters('dcPrefix'),padLeft(add(copyIndex(),1),2,'0'),'/',variables('extensionName'),padLeft(add(copyIndex(),1),2,'0'))]",
-      "type": "Microsoft.Compute/virtualMachines/extensions",
-      "location": "[parameters('location')]",
-      "apiVersion": "2018-06-01",
-      "copy": {
-        "count": "[parameters('resourceCount')]",
-        "name": "adds-configuration"
       },
       "dependsOn": [
-        "vmloop"
-      ],
+        "[resourceId('Microsoft.Compute/availabilitySets', parameters('availSetName'))]",
+        "[resourceId('Microsoft.Network/networkInterfaces', format('{0}-nic{1}', parameters('dcPrefix'), padLeft(add(copyIndex(), 1), 2, '0')))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "dcDsc",
+        "count": "[length(parameters('ipAddresses'))]"
+      },
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2024-07-01",
+      "name": "[format('{0}/{1}', format('{0}{1}', parameters('dcPrefix'), padLeft(add(copyIndex(), 1), 2, '0')), format('{0}{1}', variables('extensionName'), padLeft(add(copyIndex(), 1), 2, '0')))]",
+      "location": "[parameters('location')]",
       "tags": {
         "displayName": "promote-adds"
       },
       "properties": {
         "publisher": "Microsoft.Powershell",
         "type": "DSC",
-        "typeHandlerVersion": "2.19",
+        "typeHandlerVersion": "2.83",
         "autoUpgradeMinorVersion": true,
         "settings": {
+          "wmfVersion": "latest",
           "configuration": {
-            "WMFVersion": "latest",
-            "url": "[concat(parameters('_artifactsLocation'), '/', variables('promote-addsArchiveFolder'), '/', variables('promote-addsArchiveFileName'))]",
+            "url": "[variables('dscArchiveUri')]",
             "script": "promote-adds.ps1",
             "function": "CreateADReplicaDC"
           },
           "configurationArguments": {
-            "DomainName": "[parameters('domainToJoin')]"
+            "DomainName": "[parameters('domainToJoin')]",
+            "SiteName": "[parameters('adSiteName')]",
+            "DataDiskNumber": "[string(parameters('dataDiskNumber'))]"
           }
         },
         "protectedSettings": {
           "configurationArguments": {
-            "safemodeAdminCreds": {
-              "UserName": "[parameters('domainAdminUserName')]",
-              "Password": "[parameters('domainAdminPassword')]"
+            "SafemodeAdminCreds": {
+              "UserName": "[parameters('domainAdminUsername')]",
+              "Password": "[if(empty(parameters('safeModeAdminPassword')), parameters('domainAdminPassword'), parameters('safeModeAdminPassword'))]"
             },
-            "adminCreds": {
+            "AdminCreds": {
               "UserName": "[parameters('domainAdminUsername')]",
               "Password": "[parameters('domainAdminPassword')]"
             }
           }
         }
-      }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', format('{0}{1}', parameters('dcPrefix'), padLeft(add(copyIndex(), 1), 2, '0')))]"
+      ]
     }
   ],
-  "outputs": {}
+  "outputs": {
+    "domainControllers": {
+      "type": "array",
+      "copy": {
+        "count": "[length(parameters('ipAddresses'))]",
+        "input": {
+          "name": "[format('{0}{1}', parameters('dcPrefix'), padLeft(add(copyIndex(), 1), 2, '0'))]",
+          "privateIPAddress": "[parameters('ipAddresses')[copyIndex()]]"
+        }
+      }
+    }
+  }
 }
