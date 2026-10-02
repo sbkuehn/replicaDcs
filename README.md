@@ -3,43 +3,41 @@
 ## Architecture
 
 ```mermaid
-flowchart LR
-	subgraph Deploy[Deployment control plane]
-		Operator[Operator]
-		Parameters[Parameter file<br/>Admin credentials use Key Vault references]
-		Scripts[Azure CLI deploy.sh<br/>or PowerShell deployment]
-		ARM[Azure Resource Manager]
-		Operator --> Scripts
-		Parameters --> Scripts
-		Scripts --> ARM
-	end
+%%{init: {"theme": "base", "themeVariables": {"fontSize": "18px"}, "flowchart": {"nodeSpacing": 48, "rankSpacing": 64}}}%%
+flowchart TB
+  subgraph Deploy[Deployment control plane]
+    direction LR
+    Operator[Operator] --> Tool[Azure CLI or PowerShell]
+    Parameters[Parameters<br/>Credentials reference Key Vault] --> Tool
+    Tool --> ARM[Azure Resource Manager]
+  end
 
-	KeyVault[Key Vault<br/>ARM template deployment enabled]
-	ARM -->|Resolve secret references| KeyVault
+  KeyVault[Key Vault<br/>ARM template deployment enabled]
+  ARM -->|Resolve credentials| KeyVault
 
-	subgraph Azure[Azure]
-		subgraph Existing[Existing Azure network]
-			VNet[Existing VNet and subnet<br/>Custom DNS points to on-premises DCs]
-		end
-		subgraph Target[Deployment resource group]
-			NICs[One NIC per supplied static IP]
-			VMs[Generation 2 Trusted Launch VMs<br/>Availability Set or Zones<br/>Dedicated AD data disk]
-			DSC[DSC extension per VM]
-			ReplicaDCs[Replica domain controllers<br/>AD DS, DNS, Global Catalog]
-			NICs --> VMs --> DSC --> ReplicaDCs
-		end
-		Artifacts[DSC archive<br/>GitHub raw by default<br/>Private staging storage optional]
-	end
+  subgraph Azure[Azure]
+    direction TB
+    VNet[Existing VNet and subnet<br/>Custom DNS points to on-premises DCs]
+    subgraph Target[Deployment resource group]
+      direction TB
+      NICs[Static-IP NICs<br/>one per supplied IP]
+      VMs[Generation 2 Trusted Launch VMs<br/>Availability Set or Zones<br/>Dedicated AD data disk]
+      DSC[DSC extension per VM]
+      ReplicaDCs[Replica domain controllers<br/>AD DS, DNS, Global Catalog]
+      NICs --> VMs --> DSC --> ReplicaDCs
+    end
+    Artifacts[DSC archive<br/>GitHub raw or optional private staging storage]
+    DSC -->|Download configuration| Artifacts
+  end
 
-	ARM -->|Deploy resources| NICs
-	VNet --> NICs
-	DSC -->|Download configuration| Artifacts
+  ARM -->|Deploy| NICs
+  VNet --> NICs
 
-	subgraph OnPrem[On-premises environment]
-		AD[Existing AD DS forest<br/>DNS and AD Sites]
-	end
-	VNet <-->|Site-to-site VPN or ExpressRoute| AD
-	ReplicaDCs <-->|AD replication| AD
+  subgraph OnPrem[On-premises environment]
+    AD[Existing AD DS forest<br/>DNS and AD Sites]
+  end
+  VNet <-->|Site-to-site VPN or ExpressRoute| AD
+  ReplicaDCs <-->|AD replication| AD
 ```
 
 ## Blog Posts - IT Ops Talk (Microsoft Tech Community)
