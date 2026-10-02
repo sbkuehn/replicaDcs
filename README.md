@@ -56,11 +56,13 @@ Sign in with `Connect-AzAccount`, update `azuredeploy.parameters.json` for your 
 
 Add `-ValidateOnly` to validate the template without deploying. Add `-UploadArtifacts` to rebuild the DSC archive from your local `promote-adds.ps1` and stage it in a private storage container, which lets you test DSC changes before pushing them to GitHub.
 
-You can also deploy the Bicep file directly with the Azure CLI:
+To deploy with the Azure CLI instead (locally after `az login`, or from Azure Cloud Shell in Bash), run:
 
 ```bash
-az deployment group create -g az-ad -f azuredeploy.bicep -p azuredeploy.parameters.json
+./deploy.sh -g az-ad -l eastus
 ```
+
+Add `-w` to preview the changes with what-if, `-v` to validate only, or `-s <subscription>` to target a specific subscription. Run `./deploy.sh -h` for all options.
 
 ## Making Changes
 - `azuredeploy.bicep` is the source template. After editing it, regenerate the JSON with `az bicep build --file azuredeploy.bicep --outfile azuredeploy.json`.
